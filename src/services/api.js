@@ -7,15 +7,16 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
+    const isFormData = options.body instanceof FormData;
     const config = {
       headers: {
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
         ...options.headers,
       },
       ...options,
     };
 
-    if (config.body && typeof config.body === 'object') {
+    if (!isFormData && config.body && typeof config.body === 'object') {
       config.body = JSON.stringify(config.body);
     }
 
@@ -148,6 +149,21 @@ class ApiService {
   // Helper method to transform multiple records
   transformRecordsToFrontend(backendRecords) {
     return backendRecords.map(record => this.transformRecordToFrontend(record));
+  }
+
+  // Import transactions from CSV
+  async importTransactionsCSV(file) {
+    if (!this.currentUser) {
+      throw new Error('User not authenticated');
+    }
+    const form = new FormData();
+    form.append('file', file);
+    form.append('userId', this.currentUser.id);
+
+    return this.request('/records/import', {
+      method: 'POST',
+      body: form,
+    });
   }
 }
 

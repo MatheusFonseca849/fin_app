@@ -12,7 +12,7 @@ import {
   ArcElement,
   BarElement,
 } from 'chart.js';
-import { categories, generateBalanceHistory } from '../data/mockData';
+import { categories } from '../data/mockData';
 import useTransactions from '../hooks/useTransactions';
 
 ChartJS.register(
@@ -29,7 +29,45 @@ ChartJS.register(
 
 const Analytics = ({ user }) => {
   const { transactions, loading, error, getCurrentBalance, getMonthlyStats, getExpensesByCategory } = useTransactions(user);
-  const balanceHistory = generateBalanceHistory();
+
+  // Build balance history for the last 6 months from real user transactions
+  const buildBalanceHistory = (txns, months = 6) => {
+    const now = new Date();
+    const monthKeys = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthKeys.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) });
+    }
+
+    const monthlyNet = Object.fromEntries(monthKeys.map(m => [m.key, 0]));
+    txns.forEach(t => {
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (monthlyNet[key] !== undefined) {
+        monthlyNet[key] += t.amount;
+      }
+    });
+
+    // Compute starting balance as the sum of all transactions BEFORE the first month in the window
+    const firstMonth = monthKeys[0];
+    const firstMonthDate = new Date(parseInt(firstMonth.key.split('-')[0], 10), parseInt(firstMonth.key.split('-')[1], 10) - 1, 1);
+    const startingBalance = txns
+      .filter(t => new Date(t.date) < firstMonthDate)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const labels = [];
+    const balances = [];
+    let cumulative = startingBalance;
+    monthKeys.forEach(m => {
+      cumulative += monthlyNet[m.key];
+      labels.push(m.label);
+      balances.push(Number(cumulative.toFixed(2)));
+    });
+
+    return { labels, balances };
+  };
+
+  const balanceHistory = buildBalanceHistory(transactions, 6);
   
   if (loading) {
     return (
@@ -51,11 +89,11 @@ const Analytics = ({ user }) => {
 
   // Balance chart data
   const balanceChartData = {
-    labels: balanceHistory.map(item => item.month),
+    labels: balanceHistory.labels,
     datasets: [
       {
         label: 'Saldo',
-        data: balanceHistory.map(item => item.balance),
+        data: balanceHistory.balances,
         borderColor: 'rgb(75, 192, 192)',
         backgroundColor: 'rgba(75, 192, 192, 0.2)',
         tension: 0.1,

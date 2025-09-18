@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { categories } from '../data/mockData';
 import useTransactions from '../hooks/useTransactions';
+import apiService from '../services/api';
 
 const Transactions = ({ user }) => {
   const { transactions, loading, error, addTransaction, updateTransaction, deleteTransaction, fetchTransactions } = useTransactions(user);
@@ -18,6 +19,9 @@ const Transactions = ({ user }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [importMessage, setImportMessage] = useState(null);
+  const fileInputRef = useRef(null);
 
   const filteredTransactions = transactions.filter(transaction => {
     const typeMatch = filter === 'all' || transaction.type === filter;
@@ -149,15 +153,60 @@ const Transactions = ({ user }) => {
         </div>
       )}
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', gap: '10px' }}>
         <h1>Extrato de Transações</h1>
-        <button 
-          className="btn btn-primary"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          {showAddForm ? 'Cancelar' : 'Nova Transação'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <input 
+            type="file" 
+            accept=".csv" 
+            ref={fileInputRef} 
+            style={{ display: 'none' }} 
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              try {
+                setImportMessage(null);
+                setImporting(true);
+                const result = await apiService.importTransactionsCSV(file);
+                await fetchTransactions();
+                setImportMessage(`Importação concluída: ${result.createdCount} registros adicionados${result.errorCount ? `, ${result.errorCount} erros` : ''}.`);
+              } catch (err) {
+                setImportMessage(`Falha ao importar CSV: ${err.message}`);
+              } finally {
+                setImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+              }
+            }}
+          />
+          <button 
+            className="btn"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            style={{ backgroundColor: '#17a2b8', color: 'white' }}
+          >
+            {importing ? 'Importando...' : 'Importar CSV'}
+          </button>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowAddForm(!showAddForm)}
+          >
+            {showAddForm ? 'Cancelar' : 'Nova Transação'}
+          </button>
+        </div>
       </div>
+
+      {importMessage && (
+        <div style={{ 
+          backgroundColor: '#e2f0fb', 
+          color: '#0c5460', 
+          padding: '10px', 
+          borderRadius: '5px', 
+          marginBottom: '20px',
+          border: '1px solid #bee5eb'
+        }}>
+          {importMessage}
+        </div>
+      )}
 
       {showAddForm && (
         <div className="card" style={{ marginBottom: '20px' }}>
@@ -480,7 +529,7 @@ const Transactions = ({ user }) => {
                 Cancelar
               </button>
               <button 
-                onClick={handleDeleteConfirm}
+                onClick={handleDeleteTransaction}
                 style={{
                   padding: '10px 20px',
                   backgroundColor: '#dc3545',

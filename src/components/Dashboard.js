@@ -10,7 +10,6 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { generateBalanceHistory } from '../data/mockData';
 import useTransactions from '../hooks/useTransactions';
 
 ChartJS.register(
@@ -27,7 +26,48 @@ const Dashboard = ({ user }) => {
   const { transactions, loading, error, getCurrentBalance, getMonthlyStats } = useTransactions(user);
   const currentBalance = getCurrentBalance();
   const { income, expenses } = getMonthlyStats();
-  const balanceHistory = generateBalanceHistory();
+
+  // Build balance history for the last 6 months from real user transactions
+  const buildBalanceHistory = (txns, months = 6) => {
+    const now = new Date();
+    // Build an array of month keys from oldest to newest
+    const monthKeys = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthKeys.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, label: d.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }) });
+    }
+
+    // Sum net amounts per month
+    const monthlyNet = Object.fromEntries(monthKeys.map(m => [m.key, 0]));
+    txns.forEach(t => {
+      const d = new Date(t.date);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (monthlyNet[key] !== undefined) {
+        monthlyNet[key] += t.amount; // amount already positive for crédito and negative for débito
+      }
+    });
+
+    // Compute starting balance as the sum of all transactions BEFORE the first month in the window
+    const firstMonth = monthKeys[0];
+    const firstMonthDate = new Date(parseInt(firstMonth.key.split('-')[0], 10), parseInt(firstMonth.key.split('-')[1], 10) - 1, 1);
+    const startingBalance = txns
+      .filter(t => new Date(t.date) < firstMonthDate)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    // Build cumulative balance over months starting from the true running balance
+    const labels = [];
+    const balances = [];
+    let cumulative = startingBalance;
+    monthKeys.forEach(m => {
+      cumulative += monthlyNet[m.key];
+      labels.push(m.label);
+      balances.push(Number(cumulative.toFixed(2)));
+    });
+
+    return { labels, balances };
+  };
+
+  const balanceHistory = buildBalanceHistory(transactions, 6);
 
   if (loading) {
     return (
@@ -40,11 +80,11 @@ const Dashboard = ({ user }) => {
   }
 
   const chartData = {
-    labels: balanceHistory.map(item => item.month),
+    labels: balanceHistory.labels,
     datasets: [
       {
         label: 'Saldo',
-        data: balanceHistory.map(item => item.balance),
+        data: balanceHistory.balances,
         borderColor: 'rgb(75, 192, 192)',
         backgroundColor: 'rgba(75, 192, 192, 0.2)',
         tension: 0.1,
