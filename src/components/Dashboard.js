@@ -10,7 +10,8 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { getCurrentBalance, getMonthlyStats, generateBalanceHistory } from '../data/mockData';
+import { generateBalanceHistory } from '../data/mockData';
+import useTransactions from '../hooks/useTransactions';
 
 ChartJS.register(
   CategoryScale,
@@ -23,9 +24,20 @@ ChartJS.register(
 );
 
 const Dashboard = ({ user }) => {
+  const { transactions, loading, error, getCurrentBalance, getMonthlyStats } = useTransactions(user);
   const currentBalance = getCurrentBalance();
   const { income, expenses } = getMonthlyStats();
   const balanceHistory = generateBalanceHistory();
+
+  if (loading) {
+    return (
+      <div className="container">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <p>Carregando dados...</p>
+        </div>
+      </div>
+    );
+  }
 
   const chartData = {
     labels: balanceHistory.map(item => item.month),

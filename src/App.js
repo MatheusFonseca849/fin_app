@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import Transactions from './components/Transactions';
 import Analytics from './components/Analytics';
 import Navbar from './components/Navbar';
+import apiService from './services/api';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -30,6 +31,7 @@ function App() {
     setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('finapp_user');
+    apiService.logout();
   };
 
   if (!isAuthenticated) {

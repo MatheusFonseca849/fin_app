@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { mockTransactions, categories } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import { categories } from '../data/mockData';
+import useTransactions from '../hooks/useTransactions';
 
 const Transactions = ({ user }) => {
-  const [transactions, setTransactions] = useState(mockTransactions);
+  const { transactions, loading, error, addTransaction, updateTransaction, deleteTransaction, fetchTransactions } = useTransactions(user);
   const [filter, setFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -13,6 +14,10 @@ const Transactions = ({ user }) => {
     amount: '',
     date: new Date().toISOString().split('T')[0]
   });
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState(null);
 
   const filteredTransactions = transactions.filter(transaction => {
     const typeMatch = filter === 'all' || transaction.type === filter;
@@ -20,25 +25,32 @@ const Transactions = ({ user }) => {
     return typeMatch && categoryMatch;
   });
 
-  const handleAddTransaction = (e) => {
+  const handleAddTransaction = async (e) => {
     e.preventDefault();
-    const transaction = {
-      id: Date.now(),
-      ...newTransaction,
-      amount: newTransaction.type === 'debito' 
-        ? -Math.abs(parseFloat(newTransaction.amount))
-        : Math.abs(parseFloat(newTransaction.amount))
-    };
     
-    setTransactions([transaction, ...transactions]);
-    setNewTransaction({
-      type: 'debito',
-      category: 'alimentacao',
-      description: '',
-      amount: '',
-      date: new Date().toISOString().split('T')[0]
-    });
-    setShowAddForm(false);
+    try {
+      const transactionData = {
+        description: newTransaction.description,
+        amount: newTransaction.type === 'credito' ? Math.abs(parseFloat(newTransaction.amount)) : -Math.abs(parseFloat(newTransaction.amount)),
+        type: newTransaction.type,
+        category: newTransaction.category,
+        date: newTransaction.date
+      };
+
+      await addTransaction(transactionData);
+      
+      setNewTransaction({
+        type: 'debito',
+        category: 'alimentacao',
+        description: '',
+        amount: '',
+        date: new Date().toISOString().split('T')[0]
+      });
+      setShowAddForm(false);
+    } catch (err) {
+      console.error('Error adding transaction:', err);
+      // Error is handled by the hook
+    }
   };
 
   const handleInputChange = (e) => {
@@ -48,8 +60,95 @@ const Transactions = ({ user }) => {
     });
   };
 
+  const handleEditInputChange = (e) => {
+    setEditingTransaction({
+      ...editingTransaction,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleEditTransaction = (transaction) => {
+    setEditingTransaction({
+      ...transaction,
+      amount: Math.abs(transaction.amount).toString()
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateTransaction = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const transactionData = {
+        description: editingTransaction.description,
+        amount: editingTransaction.type === 'credito' ? Math.abs(parseFloat(editingTransaction.amount)) : -Math.abs(parseFloat(editingTransaction.amount)),
+        type: editingTransaction.type,
+        category: editingTransaction.category,
+        date: editingTransaction.date
+      };
+
+      await updateTransaction(editingTransaction.id, transactionData);
+      
+      setEditingTransaction(null);
+      setShowEditModal(false);
+    } catch (err) {
+      console.error('Error updating transaction:', err);
+      // Error is handled by the hook
+    }
+  };
+
+  const handleDeleteClick = (transaction) => {
+    setTransactionToDelete(transaction);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteTransaction = async () => {
+    try {
+      await deleteTransaction(transactionToDelete.id);
+      setTransactionToDelete(null);
+      setShowDeleteModal(false);
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      // Error is handled by the hook
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setTransactionToDelete(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="container">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <p>Carregando transações...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container">
+      {error && (
+        <div style={{ 
+          backgroundColor: '#f8d7da', 
+          color: '#721c24', 
+          padding: '10px', 
+          borderRadius: '5px', 
+          marginBottom: '20px',
+          border: '1px solid #f5c6cb'
+        }}>
+          {error}
+          <button 
+            onClick={fetchTransactions}
+            style={{ marginLeft: '10px', padding: '5px 10px', fontSize: '12px' }}
+          >
+            Tentar Novamente
+          </button>
+        </div>
+      )}
+      
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h1>Extrato de Transações</h1>
         <button 
@@ -158,6 +257,7 @@ const Transactions = ({ user }) => {
               <th>Categoria</th>
               <th>Descrição</th>
               <th>Valor</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -174,6 +274,37 @@ const Transactions = ({ user }) => {
                 <td className={transaction.amount >= 0 ? 'positive' : 'negative'}>
                   R$ {Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </td>
+                <td>
+                  <button 
+                    onClick={() => handleEditTransaction(transaction)}
+                    style={{ 
+                      marginRight: '5px', 
+                      padding: '5px 10px', 
+                      backgroundColor: '#007bff', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    Editar
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteClick(transaction)}
+                    style={{ 
+                      padding: '5px 10px', 
+                      backgroundColor: '#dc3545', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    Excluir
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -185,6 +316,186 @@ const Transactions = ({ user }) => {
           </p>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {showEditModal && editingTransaction && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h3>Editar Transação</h3>
+            <form onSubmit={handleUpdateTransaction}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
+                <div className="form-group">
+                  <label>Tipo</label>
+                  <select
+                    name="type"
+                    value={editingTransaction.type}
+                    onChange={handleEditInputChange}
+                    required
+                  >
+                    <option value="debito">Débito</option>
+                    <option value="credito">Crédito</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Categoria</label>
+                  <select
+                    name="category"
+                    value={editingTransaction.category}
+                    onChange={handleEditInputChange}
+                    required
+                  >
+                    {Object.entries(categories).map(([key, value]) => (
+                      <option key={key} value={key}>{value}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Descrição</label>
+                  <input
+                    type="text"
+                    name="description"
+                    value={editingTransaction.description}
+                    onChange={handleEditInputChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valor</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="amount"
+                    value={editingTransaction.amount}
+                    onChange={handleEditInputChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Data</label>
+                  <input
+                    type="date"
+                    name="date"
+                    value={editingTransaction.date}
+                    onChange={handleEditInputChange}
+                    required
+                  />
+                </div>
+              </div>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setShowEditModal(false)}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && transactionToDelete && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '30px',
+            borderRadius: '8px',
+            width: '90%',
+            maxWidth: '400px'
+          }}>
+            <h3>Confirmar Exclusão</h3>
+            <p>Tem certeza que deseja excluir esta transação?</p>
+            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+              <strong>{transactionToDelete.description}</strong><br />
+              <span>{categories[transactionToDelete.category]}</span><br />
+              <span className={transactionToDelete.amount >= 0 ? 'positive' : 'negative'}>
+                R$ {Math.abs(transactionToDelete.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={handleDeleteCancel}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleDeleteConfirm}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

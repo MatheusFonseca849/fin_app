@@ -12,7 +12,8 @@ import {
   ArcElement,
   BarElement,
 } from 'chart.js';
-import { mockTransactions, categories, generateBalanceHistory } from '../data/mockData';
+import { categories, generateBalanceHistory } from '../data/mockData';
+import useTransactions from '../hooks/useTransactions';
 
 ChartJS.register(
   CategoryScale,
@@ -27,16 +28,21 @@ ChartJS.register(
 );
 
 const Analytics = ({ user }) => {
+  const { transactions, loading, error, getCurrentBalance, getMonthlyStats, getExpensesByCategory } = useTransactions(user);
   const balanceHistory = generateBalanceHistory();
   
+  if (loading) {
+    return (
+      <div className="container">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          <p>Carregando dados de análise...</p>
+        </div>
+      </div>
+    );
+  }
+  
   // Calculate expenses by category
-  const expensesByCategory = mockTransactions
-    .filter(t => t.type === 'debito')
-    .reduce((acc, transaction) => {
-      const category = transaction.category;
-      acc[category] = (acc[category] || 0) + Math.abs(transaction.amount);
-      return acc;
-    }, {});
+  const expensesByCategory = getExpensesByCategory();
 
   // Get top 5 expense categories
   const topExpenseCategories = Object.entries(expensesByCategory)
@@ -177,9 +183,21 @@ const Analytics = ({ user }) => {
         </div>
       </div>
 
-      {/* Transactions Table */}
+        {/* Transactions Table */}
       <div className="card">
         <h3>Tabela de Transações</h3>
+        {error && (
+          <div style={{ 
+            backgroundColor: '#f8d7da', 
+            color: '#721c24', 
+            padding: '10px', 
+            borderRadius: '5px', 
+            marginBottom: '20px',
+            border: '1px solid #f5c6cb'
+          }}>
+            {error}
+          </div>
+        )}
         <table className="table">
           <thead>
             <tr>
@@ -191,7 +209,7 @@ const Analytics = ({ user }) => {
             </tr>
           </thead>
           <tbody>
-            {mockTransactions.slice(0, 10).map(transaction => (
+            {transactions.slice(0, 10).map(transaction => (
               <tr key={transaction.id}>
                 <td>{new Date(transaction.date).toLocaleDateString('pt-BR')}</td>
                 <td>
@@ -208,6 +226,11 @@ const Analytics = ({ user }) => {
             ))}
           </tbody>
         </table>
+        {transactions.length === 0 && (
+          <p style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+            Nenhuma transação encontrada.
+          </p>
+        )}
       </div>
     </div>
   );
