@@ -7,17 +7,22 @@ class ApiService {
 
   async request(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
-    const isFormData = options.body instanceof FormData;
     const config = {
       headers: {
-        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+        'Content-Type': 'application/json',
         ...options.headers,
       },
       ...options,
     };
 
-    if (!isFormData && config.body && typeof config.body === 'object') {
+    // Don't stringify FormData objects, only regular objects
+    if (config.body && typeof config.body === 'object' && !(config.body instanceof FormData)) {
       config.body = JSON.stringify(config.body);
+    }
+
+    // Remove Content-Type header for FormData to let browser set it automatically
+    if (config.body instanceof FormData) {
+      delete config.headers['Content-Type'];
     }
 
     try {
@@ -156,9 +161,18 @@ class ApiService {
     if (!this.currentUser) {
       throw new Error('User not authenticated');
     }
+    console.log('Creating FormData for CSV import');
+    console.log('File:', file);
+    console.log('Current user ID:', this.currentUser.id);
+    
     const form = new FormData();
     form.append('file', file);
     form.append('userId', this.currentUser.id);
+
+    console.log('FormData entries:');
+    for (let [key, value] of form.entries()) {
+      console.log(key, value);
+    }
 
     return this.request('/records/import', {
       method: 'POST',

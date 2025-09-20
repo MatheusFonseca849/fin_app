@@ -163,10 +163,15 @@ const Transactions = ({ user }) => {
             style={{ display: 'none' }} 
             onChange={async (e) => {
               const file = e.target.files?.[0];
-              if (!file) return;
+              console.log('File selected:', file);
+              if (!file) {
+                console.log('No file selected');
+                return;
+              }
               try {
                 setImportMessage(null);
                 setImporting(true);
+                console.log('Calling importTransactionsCSV with file:', file.name);
                 const result = await apiService.importTransactionsCSV(file);
                 await fetchTransactions();
                 setImportMessage(`Importação concluída: ${result.createdCount} registros adicionados${result.errorCount ? `, ${result.errorCount} erros` : ''}.`);
