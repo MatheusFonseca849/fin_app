@@ -1,0 +1,12 @@
+{
+    "published": true,
+    "title": "Fin App",
+    "info": "A financial application to help users manage their expenses and income",
+    "thumbnail": "./src/assets/thumbnail.png",
+    "branch": "main",
+    "customConfig": {
+      "tags": ["react", "typescript"],
+      "featured": true,
+      "difficulty": "intermediate"
+    }
+  }
