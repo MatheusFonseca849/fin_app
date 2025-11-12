@@ -1,16 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { categories } from '../data/mockData';
 import useTransactions from '../hooks/useTransactions';
+import useCategories from '../hooks/useCategories';
 import apiService from '../services/api';
 
 const Transactions = ({ user }) => {
   const { transactions, loading, error, addTransaction, updateTransaction, deleteTransaction, fetchTransactions } = useTransactions(user);
+  const { categories, loading: categoriesLoading } = useCategories(user);
   const [filter, setFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [newTransaction, setNewTransaction] = useState({
     type: 'debito',
-    category: 'alimentacao',
+    category: '',
     description: '',
     amount: '',
     date: new Date().toISOString().split('T')[0]
@@ -23,11 +24,27 @@ const Transactions = ({ user }) => {
   const [importMessage, setImportMessage] = useState(null);
   const fileInputRef = useRef(null);
 
+  // Set default category when categories are loaded
+  useEffect(() => {
+    if (categories.length > 0 && !newTransaction.category) {
+      const firstCategory = categories[0];
+      setNewTransaction(prev => ({ ...prev, category: firstCategory.name }));
+    }
+  }, [categories]);
+
   const filteredTransactions = transactions.filter(transaction => {
     const typeMatch = filter === 'all' || transaction.type === filter;
     const categoryMatch = categoryFilter === 'all' || transaction.category === categoryFilter;
     return typeMatch && categoryMatch;
   });
+
+  // Helper to get category name by name or id
+  const getCategoryName = (categoryValue) => {
+    const category = categories.find(cat => 
+      cat.name === categoryValue || cat.id === categoryValue
+    );
+    return category ? category.name : categoryValue;
+  };
 
   const handleAddTransaction = async (e) => {
     e.preventDefault();
@@ -43,9 +60,10 @@ const Transactions = ({ user }) => {
 
       await addTransaction(transactionData);
       
+      const firstCategory = categories.length > 0 ? categories[0].name : '';
       setNewTransaction({
         type: 'debito',
-        category: 'alimentacao',
+        category: firstCategory,
         description: '',
         amount: '',
         date: new Date().toISOString().split('T')[0]
@@ -122,11 +140,11 @@ const Transactions = ({ user }) => {
     setTransactionToDelete(null);
   };
 
-  if (loading) {
+  if (loading || categoriesLoading) {
     return (
       <div className="container">
         <div style={{ textAlign: 'center', padding: '50px' }}>
-          <p>Carregando transações...</p>
+          <p>Carregando...</p>
         </div>
       </div>
     );
@@ -238,8 +256,8 @@ const Transactions = ({ user }) => {
                   onChange={handleInputChange}
                   required
                 >
-                  {Object.entries(categories).map(([key, value]) => (
-                    <option key={key} value={key}>{value}</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.name}>{cat.name}</option>
                   ))}
                 </select>
               </div>
@@ -296,8 +314,8 @@ const Transactions = ({ user }) => {
             <label>Filtrar por Categoria</label>
             <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
               <option value="all">Todas</option>
-              {Object.entries(categories).map(([key, value]) => (
-                <option key={key} value={key}>{value}</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.name}>{cat.name}</option>
               ))}
             </select>
           </div>
@@ -323,7 +341,7 @@ const Transactions = ({ user }) => {
                     {transaction.type === 'credito' ? 'Crédito' : 'Débito'}
                   </span>
                 </td>
-                <td>{categories[transaction.category]}</td>
+                <td>{getCategoryName(transaction.category)}</td>
                 <td>{transaction.description}</td>
                 <td className={transaction.amount >= 0 ? 'positive' : 'negative'}>
                   R$ {Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -417,8 +435,8 @@ const Transactions = ({ user }) => {
                     onChange={handleEditInputChange}
                     required
                   >
-                    {Object.entries(categories).map(([key, value]) => (
-                      <option key={key} value={key}>{value}</option>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.name}>{cat.name}</option>
                     ))}
                   </select>
                 </div>
@@ -514,7 +532,7 @@ const Transactions = ({ user }) => {
             <p>Tem certeza que deseja excluir esta transação?</p>
             <div style={{ marginTop: '10px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
               <strong>{transactionToDelete.description}</strong><br />
-              <span>{categories[transactionToDelete.category]}</span><br />
+              <span>{getCategoryName(transactionToDelete.category)}</span><br />
               <span className={transactionToDelete.amount >= 0 ? 'positive' : 'negative'}>
                 R$ {Math.abs(transactionToDelete.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </span>

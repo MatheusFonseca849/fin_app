@@ -23,8 +23,11 @@ const Login = ({ onLogin }) => {
     setError(null);
     
     try {
-      const userData = await apiService.login(formData.email, formData.password);
-      onLogin(userData);
+      // apiService.login now returns { accessToken, user }
+      const loginResponse = await apiService.login(formData.email, formData.password);
+      
+      // Pass the full response to App.js handleLogin
+      onLogin(loginResponse);
     } catch (err) {
       setError(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
     } finally {

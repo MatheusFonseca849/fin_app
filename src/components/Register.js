@@ -31,8 +31,11 @@ const Register = ({ onLogin }) => {
     }
     
     try {
-      const userData = await apiService.register(formData.name, formData.email, formData.password);
-      onLogin(userData);
+      // apiService.register now returns { accessToken, user }
+      const registerResponse = await apiService.register(formData.name, formData.email, formData.password);
+      
+      // Pass the full response to App.js handleLogin
+      onLogin(registerResponse);
     } catch (err) {
       setError(err.message || 'Erro ao criar conta. Tente novamente.');
     } finally {

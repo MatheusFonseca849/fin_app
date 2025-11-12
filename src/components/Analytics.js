@@ -12,8 +12,8 @@ import {
   ArcElement,
   BarElement,
 } from 'chart.js';
-import { categories } from '../data/mockData';
 import useTransactions from '../hooks/useTransactions';
+import useCategories from '../hooks/useCategories';
 
 ChartJS.register(
   CategoryScale,
@@ -29,6 +29,15 @@ ChartJS.register(
 
 const Analytics = ({ user }) => {
   const { transactions, loading, error, getCurrentBalance, getMonthlyStats, getExpensesByCategory } = useTransactions(user);
+  const { categories, loading: categoriesLoading } = useCategories(user);
+
+  // Helper to get category name by name or id
+  const getCategoryName = (categoryValue) => {
+    const category = categories.find(cat => 
+      cat.name === categoryValue || cat.id === categoryValue
+    );
+    return category ? category.name : categoryValue;
+  };
 
   // Build balance history for the last 6 months from real user transactions
   const buildBalanceHistory = (txns, months = 6) => {
@@ -69,7 +78,7 @@ const Analytics = ({ user }) => {
 
   const balanceHistory = buildBalanceHistory(transactions, 6);
   
-  if (loading) {
+  if (loading || categoriesLoading) {
     return (
       <div className="container">
         <div style={{ textAlign: 'center', padding: '50px' }}>
@@ -103,7 +112,7 @@ const Analytics = ({ user }) => {
 
   // Pie chart data for expenses by category
   const pieChartData = {
-    labels: Object.keys(expensesByCategory).map(key => categories[key]),
+    labels: Object.keys(expensesByCategory).map(key => getCategoryName(key)),
     datasets: [
       {
         data: Object.values(expensesByCategory),
@@ -133,7 +142,7 @@ const Analytics = ({ user }) => {
 
   // Bar chart data for top expense categories
   const barChartData = {
-    labels: topExpenseCategories.map(([key]) => categories[key]),
+    labels: topExpenseCategories.map(([key]) => getCategoryName(key)),
     datasets: [
       {
         label: 'Gastos por Categoria',
@@ -258,7 +267,7 @@ const Analytics = ({ user }) => {
                 <td className={transaction.amount >= 0 ? 'positive' : 'negative'}>
                   R$ {Math.abs(transaction.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </td>
-                <td>{categories[transaction.category]}</td>
+                <td>{getCategoryName(transaction.category)}</td>
                 <td>{transaction.description}</td>
               </tr>
             ))}
