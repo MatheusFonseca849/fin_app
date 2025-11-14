@@ -16,8 +16,8 @@ const useTransactions = (user) => {
     try {
       setLoading(true);
       const data = await apiService.getFinancialRecords();
-      const transformedData = data.map(record => apiService.transformRecordToFrontend(record));
-      setTransactions(transformedData);
+      // Data is already transformed by API service
+      setTransactions(data);
       setError(null);
     } catch (err) {
       setError('Erro ao carregar transações');
@@ -44,9 +44,9 @@ const useTransactions = (user) => {
 
     try {
       const newRecord = await apiService.createFinancialRecord(transaction);
-      const transformedRecord = apiService.transformRecordToFrontend(newRecord);
-      setTransactions(prev => [...prev, transformedRecord]);
-      return transformedRecord;
+      // Data is already transformed by API service
+      setTransactions(prev => [...prev, newRecord]);
+      return newRecord;
     } catch (err) {
       setError('Erro ao adicionar transação');
       console.error('Error adding transaction:', err);
@@ -61,13 +61,13 @@ const useTransactions = (user) => {
 
     try {
       const updatedRecord = await apiService.updateFinancialRecord(id, updatedTransaction);
-      const transformedRecord = apiService.transformRecordToFrontend(updatedRecord);
+      // Data is already transformed by API service
       setTransactions(prev => 
         prev.map(transaction => 
-          transaction.id === id ? transformedRecord : transaction
+          transaction.id === id ? updatedRecord : transaction
         )
       );
-      return transformedRecord;
+      return updatedRecord;
     } catch (err) {
       setError('Erro ao atualizar transação');
       console.error('Error updating transaction:', err);

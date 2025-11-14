@@ -5,6 +5,7 @@ import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import Transactions from './components/Transactions';
 import Analytics from './components/Analytics';
+import Categories from './components/Categories';
 import Navbar from './components/Navbar';
 import apiService from './services/api';
 
@@ -135,6 +136,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard user={user} />} />
           <Route path="/transactions" element={<Transactions user={user} />} />
           <Route path="/analytics" element={<Analytics user={user} />} />
+          <Route path="/categories" element={<Categories user={user} />} />
           <Route path="*" element={<Navigate to="/dashboard" />} />
         </Routes>
       </div>

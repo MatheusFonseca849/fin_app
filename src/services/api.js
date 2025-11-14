@@ -221,7 +221,8 @@ class ApiService {
     if (!this.accessToken) {
       throw new Error('User not authenticated');
     }
-    return this.request('/records');
+    const records = await this.request('/records');
+    return this.transformRecordsToFrontend(records);
   }
 
   /**
@@ -242,10 +243,11 @@ class ApiService {
       // No userId needed - backend gets it from JWT token
     };
 
-    return this.request('/records', {
+    const newRecord = await this.request('/records', {
       method: 'POST',
       body: backendRecord,
     });
+    return this.transformRecordToFrontend(newRecord);
   }
 
   /**
@@ -265,10 +267,11 @@ class ApiService {
       date: record.date,
     };
 
-    return this.request(`/records/${id}`, {
+    const updatedRecord = await this.request(`/records/${id}`, {
       method: 'PUT',
       body: backendRecord,
     });
+    return this.transformRecordToFrontend(updatedRecord);
   }
 
   /**
@@ -292,13 +295,14 @@ class ApiService {
       throw new Error('User not authenticated');
     }
     
-    return this.request(`/records/${id}`);
+    const record = await this.request(`/records/${id}`);
+    return this.transformRecordToFrontend(record);
   }
 
   // Helper method to transform backend data to frontend format
   transformRecordToFrontend(backendRecord) {
     return {
-      id: backendRecord.id,
+      id: backendRecord._id || backendRecord.id, // MongoDB uses _id
       date: backendRecord.timestamp ? new Date(backendRecord.timestamp).toISOString().split('T')[0] : backendRecord.date,
       type: backendRecord.type,
       category: backendRecord.category,
@@ -310,6 +314,22 @@ class ApiService {
   // Helper method to transform multiple records
   transformRecordsToFrontend(backendRecords) {
     return backendRecords.map(record => this.transformRecordToFrontend(record));
+  }
+
+  // Helper method to transform category data from backend to frontend
+  transformCategoryToFrontend(backendCategory) {
+    return {
+      id: backendCategory._id || backendCategory.id, // MongoDB uses _id
+      name: backendCategory.name,
+      type: backendCategory.type,
+      color: backendCategory.color,
+      isDefault: backendCategory.isDefault
+    };
+  }
+
+  // Helper method to transform multiple categories
+  transformCategoriesToFrontend(backendCategories) {
+    return backendCategories.map(cat => this.transformCategoryToFrontend(cat));
   }
 
   /**
@@ -341,7 +361,8 @@ class ApiService {
     if (!this.accessToken) {
       throw new Error('User not authenticated');
     }
-    return this.request('/categories');
+    const categories = await this.request('/categories');
+    return this.transformCategoriesToFrontend(categories);
   }
 
   /**
@@ -351,10 +372,11 @@ class ApiService {
     if (!this.accessToken) {
       throw new Error('User not authenticated');
     }
-    return this.request('/categories', {
+    const newCategory = await this.request('/categories', {
       method: 'POST',
       body: category,
     });
+    return this.transformCategoryToFrontend(newCategory);
   }
 
   /**
@@ -364,10 +386,11 @@ class ApiService {
     if (!this.accessToken) {
       throw new Error('User not authenticated');
     }
-    return this.request(`/categories/${id}`, {
+    const updatedCategory = await this.request(`/categories/${id}`, {
       method: 'PUT',
       body: category,
     });
+    return this.transformCategoryToFrontend(updatedCategory);
   }
 
   /**

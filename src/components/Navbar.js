@@ -34,6 +34,14 @@ const Navbar = ({ user, onLogout }) => {
             </Link>
           </li>
           <li>
+            <Link 
+              to="/categories" 
+              className={location.pathname === '/categories' ? 'active' : ''}
+            >
+              Categorias
+            </Link>
+          </li>
+          <li>
             <span style={{ marginRight: '10px' }}>Olá, {user?.name}</span>
             <button 
               onClick={onLogout} 
